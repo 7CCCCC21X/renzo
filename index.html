@@ -87,29 +87,27 @@ async function batchQuery() {
   tbody.innerHTML = "";
   document.getElementById("progress").innerText = `查询中，请耐心等待... (0/${wallets.length} 0%)`;
 
-  let results = [];
   let totalRez = 0;
+  let count = 0;
 
   for (let i = 0; i < wallets.length; i++) {
     const result = await queryOne(wallets[i], i+1);
-    results.push(result);
-    totalRez += result.rezTokens;
-
+    if (result.rezTokens > 0) {
+      totalRez += result.rezTokens;
+      count++;
+      const row = `<tr>
+        <td>${count}</td>
+        <td>${result.wallet}</td>
+        <td class="highlight">${result.rezTokens}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    }
     document.getElementById("progress").innerText = `查询中，请耐心等待... (${i+1}/${wallets.length} ${((i+1)/wallets.length*100).toFixed(1)}%)`;
     await new Promise(r => setTimeout(r, 200));
   }
 
-  results = results.filter(r => r.rezTokens > 0); // 只显示有代币的地址
-  results.sort((a, b) => b.rezTokens - a.rezTokens); // 按领取数量降序排序
-
-  tbody.innerHTML = results.map((r, idx) => `<tr>
-    <td>${idx+1}</td>
-    <td>${r.wallet}</td>
-    <td class="${r.rezTokens > 0 ? 'highlight' : ''}">${r.rezTokens}</td>
-  </tr>`).join("");
-
-  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址。有效地址 ${results.length} 个，总可领取 REZ：${totalRez.toFixed(2)} 枚。`;
-  document.getElementById("exportButton").style.display = "inline-block";
+  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址。有效地址 ${count} 个，总可领取 REZ：${totalRez.toFixed(2)} 枚。`;
+  if (count > 0) document.getElementById("exportButton").style.display = "inline-block";
 
   button.disabled = false;
   button.innerText = "开始查询";
