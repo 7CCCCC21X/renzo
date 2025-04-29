@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Renzo 可领取代币批量查询</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f8f8f8; text-align: center; }
+    textarea { width: 80%; height: 150px; padding: 10px; margin-bottom: 10px; }
+    button { padding: 10px 20px; background: #007bff; color: #fff; border: none; cursor: pointer; transition: background 0.3s; }
+    button:hover { background: #0056b3; }
+    table { width: 60%; margin: 20px auto 0 auto; border-collapse: collapse; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 14px; }
+    th { background: #f0f0f0; }
+    tr:nth-child(even) { background-color: #f9f9f9; }
+    tr:hover { background-color: #f1f1f1; }
+    .footer { margin-top: 30px; color: #888; font-size: 14px; }
+    #progress { margin-top: 10px; font-size: 16px; }
+  </style>
+</head>
+<body>
+
+<h1>Renzo 可领取代币批量查询</h1>
+<p>输入钱包地址（每行一个），点击查询：</p>
+<textarea id="addressInput" placeholder="每行一个钱包地址"></textarea>
+<br>
+<button onclick="batchQuery()">开始查询</button>
+
+<div id="progress"></div>
+
+<table id="resultTable" style="display:none">
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>钱包地址</th>
+      <th>可领取 REZ 数量</th>
+    </tr>
+  </thead>
+  <tbody id="resultBody"></tbody>
+</table>
+
+<div class="footer">作者：<a href="https://x.com/0xXIAOc" target="_blank">小c</a></div>
+
+<script>
+async function queryOne(wallet, idx) {
+  const url = `/api/proxy?address=${wallet.trim()}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.success && data.data) {
+      return {
+        wallet,
+        rezTokens: data.data.rezTokens
+      };
+    } else {
+      return { wallet, rezTokens: 0 };
+    }
+  } catch (error) {
+    console.error("查询失败:", wallet, error);
+    return { wallet, rezTokens: 0 };
+  }
+}
+
+async function batchQuery() {
+  const input = document.getElementById("addressInput").value;
+  const wallets = input.split("\n").map(x => x.trim()).filter(x => x);
+  if (wallets.length === 0) {
+    alert("请输入至少一个地址！");
+    return;
+  }
+
+  document.getElementById("resultTable").style.display = "table";
+  const tbody = document.getElementById("resultBody");
+  tbody.innerHTML = "";
+  document.getElementById("progress").innerText = `查询中，请耐心等待... (0/${wallets.length})`;
+
+  for (let i = 0; i < wallets.length; i++) {
+    const result = await queryOne(wallets[i], i+1);
+
+    const row = `<tr>
+      <td>${i+1}</td>
+      <td>${result.wallet}</td>
+      <td>${result.rezTokens}</td>
+    </tr>`;
+    tbody.innerHTML += row;
+    document.getElementById("progress").innerText = `查询中，请耐心等待... (${i+1}/${wallets.length})`;
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址。`;
+}
+</script>
+
+</body>
+</html>
