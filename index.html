@@ -8,13 +8,16 @@
     textarea { width: 80%; height: 150px; padding: 10px; margin-bottom: 10px; }
     button { padding: 10px 20px; background: #007bff; color: #fff; border: none; cursor: pointer; transition: background 0.3s; }
     button:hover { background: #0056b3; }
-    table { width: 60%; margin: 20px auto 0 auto; border-collapse: collapse; background: #fff; }
+    table { width: 90%; margin: 20px auto 0 auto; border-collapse: collapse; background: #fff; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 14px; }
     th { background: #f0f0f0; }
     tr:nth-child(even) { background-color: #f9f9f9; }
     tr:hover { background-color: #f1f1f1; }
+    .highlight { color: green; font-weight: bold; }
     .footer { margin-top: 30px; color: #888; font-size: 14px; }
     #progress { margin-top: 10px; font-size: 16px; }
+    a.link-button { margin-top: 20px; display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; transition: background 0.3s; }
+    a.link-button:hover { background: #218838; }
   </style>
 </head>
 <body>
@@ -23,7 +26,8 @@
 <p>输入钱包地址（每行一个），点击查询：</p>
 <textarea id="addressInput" placeholder="每行一个钱包地址"></textarea>
 <br>
-<button onclick="batchQuery()">开始查询</button>
+<button id="queryButton" onclick="batchQuery()">开始查询</button>
+<a class="link-button" href="https://claim.renzoprotocol.com/" target="_blank">前往领取空投 ➔</a>
 
 <div id="progress"></div>
 
@@ -38,6 +42,9 @@
   <tbody id="resultBody"></tbody>
 </table>
 
+<br>
+<button id="exportButton" onclick="exportCSV()" style="display:none;">导出CSV</button>
+
 <div class="footer">作者：<a href="https://x.com/0xXIAOc" target="_blank">小c</a></div>
 
 <script>
@@ -49,7 +56,7 @@ async function queryOne(wallet, idx) {
     if (data.success && data.data) {
       return {
         wallet,
-        rezTokens: data.data.rezTokens
+        rezTokens: parseFloat(data.data.rezTokens) || 0
       };
     } else {
       return { wallet, rezTokens: 0 };
@@ -62,31 +69,69 @@ async function queryOne(wallet, idx) {
 
 async function batchQuery() {
   const input = document.getElementById("addressInput").value;
-  const wallets = input.split("\n").map(x => x.trim()).filter(x => x);
+  let wallets = input.split("\n").map(x => x.trim()).filter(x => x);
+  wallets = [...new Set(wallets)]; // 自动去重
+
   if (wallets.length === 0) {
     alert("请输入至少一个地址！");
     return;
   }
 
+  const button = document.getElementById("queryButton");
+  button.disabled = true;
+  button.innerText = "查询中...";
+
   document.getElementById("resultTable").style.display = "table";
+  document.getElementById("exportButton").style.display = "none";
   const tbody = document.getElementById("resultBody");
   tbody.innerHTML = "";
-  document.getElementById("progress").innerText = `查询中，请耐心等待... (0/${wallets.length})`;
+  document.getElementById("progress").innerText = `查询中，请耐心等待... (0/${wallets.length} 0%)`;
+
+  let results = [];
+  let totalRez = 0;
 
   for (let i = 0; i < wallets.length; i++) {
     const result = await queryOne(wallets[i], i+1);
+    results.push(result);
+    totalRez += result.rezTokens;
 
-    const row = `<tr>
-      <td>${i+1}</td>
-      <td>${result.wallet}</td>
-      <td>${result.rezTokens}</td>
-    </tr>`;
-    tbody.innerHTML += row;
-    document.getElementById("progress").innerText = `查询中，请耐心等待... (${i+1}/${wallets.length})`;
+    document.getElementById("progress").innerText = `查询中，请耐心等待... (${i+1}/${wallets.length} ${((i+1)/wallets.length*100).toFixed(1)}%)`;
     await new Promise(r => setTimeout(r, 200));
   }
 
-  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址。`;
+  results = results.filter(r => r.rezTokens > 0); // 只显示有代币的地址
+  results.sort((a, b) => b.rezTokens - a.rezTokens); // 按领取数量降序排序
+
+  tbody.innerHTML = results.map((r, idx) => `<tr>
+    <td>${idx+1}</td>
+    <td>${r.wallet}</td>
+    <td class="${r.rezTokens > 0 ? 'highlight' : ''}">${r.rezTokens}</td>
+  </tr>`).join("");
+
+  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址。有效地址 ${results.length} 个，总可领取 REZ：${totalRez.toFixed(2)} 枚。`;
+  document.getElementById("exportButton").style.display = "inline-block";
+
+  button.disabled = false;
+  button.innerText = "开始查询";
+}
+
+function exportCSV() {
+  const rows = [['序号', '钱包地址', '可领取 REZ 数量']];
+  const trs = document.querySelectorAll("#resultBody tr");
+  trs.forEach(tr => {
+    const cells = tr.querySelectorAll("td");
+    const row = Array.from(cells).map(td => td.innerText);
+    rows.push(row);
+  });
+
+  let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "renzo_results.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 </script>
 
