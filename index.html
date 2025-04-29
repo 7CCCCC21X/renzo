@@ -88,26 +88,23 @@ async function batchQuery() {
   document.getElementById("progress").innerText = `查询中，请耐心等待... (0/${wallets.length} 0%)`;
 
   let totalRez = 0;
-  let count = 0;
 
   for (let i = 0; i < wallets.length; i++) {
     const result = await queryOne(wallets[i], i+1);
-    if (result.rezTokens > 0) {
-      totalRez += result.rezTokens;
-      count++;
-      const row = `<tr>
-        <td>${count}</td>
-        <td>${result.wallet}</td>
-        <td class="highlight">${result.rezTokens}</td>
-      </tr>`;
-      tbody.innerHTML += row;
-    }
+    totalRez += result.rezTokens;
+    const row = `<tr>
+      <td>${i+1}</td>
+      <td>${result.wallet}</td>
+      <td class="${result.rezTokens > 0 ? 'highlight' : ''}">${result.rezTokens}</td>
+    </tr>`;
+    tbody.innerHTML += row;
+
     document.getElementById("progress").innerText = `查询中，请耐心等待... (${i+1}/${wallets.length} ${((i+1)/wallets.length*100).toFixed(1)}%)`;
     await new Promise(r => setTimeout(r, 200));
   }
 
-  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址。有效地址 ${count} 个，总可领取 REZ：${totalRez.toFixed(2)} 枚。`;
-  if (count > 0) document.getElementById("exportButton").style.display = "inline-block";
+  document.getElementById("progress").innerText = `查询完成，共 ${wallets.length} 个地址，总可领取 REZ：${totalRez.toFixed(2)} 枚。`;
+  if (wallets.length > 0) document.getElementById("exportButton").style.display = "inline-block";
 
   button.disabled = false;
   button.innerText = "开始查询";
